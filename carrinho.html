@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="styles.css">
+    <link rel="shortcut icon" type="image/png" href="images/carrinho-de-compras.png">
+    <title>Carrinho</title>
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="index.html">Loja</a></li>
+                <li><a href="carrinho.html">Carrinho</a></li>
+            </ul>
+        </nav>
+        <hr>
+        <h1>Bem-vindo à nossa Loja Online!</h1>
+    </header>
+
+    <main>
+        <section>
+            <h2>Carrinho</h2>
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Preço</th>
+                        <th>Quantidade</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    <tr>
+                        <td>
+                            <img src="imagens/Geladeira.webp" alt="Geladeira">
+                            <strong>Geladeira</strong>
+                        </td>
+                        <td>
+                            <span>R$ 2.300,00</span>
+                        </td>
+                        <td>
+                            <input type="number" value="1" min="1">
+                            <button type="button">Remover</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <img src="imagens/Notebook.webp" alt="Notebook">
+                            <strong>Notebook</strong>
+                        </td>
+                        <td>
+                            <span>R$ 4.589,90</span>
+                        </td>
+                        <td>
+                            <input type="number" value="1" min="1">
+                            <button type="button">Remover</button>
+                        </td>
+                    </tr>
+                </tbody>
+
+                <tfoot>
+                    <tr>
+                        <td colspan="3">
+                            <strong>Total</strong>
+                            <span>R$ 6.889,90</span>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <button type="button">Finalizar Compra</button>
+        </section>
+
+    </main>
+
+    <footer>
+        <div>
+            <p>&copy; 2024 Loja Online. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+</body>
+</html>
