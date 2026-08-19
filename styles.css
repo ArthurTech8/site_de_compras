@@ -15,7 +15,9 @@ header, nav, ul, li, a {
   font-weight: 400;
   font-style: normal;
 }
-
+main {
+  display: flex;
+}
 header {
     background-image: url("imagens/fundo-dados-azul.jpg");
     background-position: 50% 39%;
@@ -32,3 +34,6 @@ nav {
     text-align:right
 }
 
+img{
+  height: 45px;
+}

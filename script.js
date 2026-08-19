@@ -1,30 +1,62 @@
 import { produtos } from '../site_de_compras/senac-26-CarrinhoCompras/data.js'
 
+
+const body = document.querySelector("body")
+function montarHeader() {
+    const header = document.createElement("header")
+    const h1 = document.createElement("h1")
+    const nav = document.createElement("nav")
+    const ul = document.createElement("ul")
+    const li = document.createElement("li")
+    const a = document.createElement("a")
+
+    h1.innerText = "Bem-vindo à nossa Loja Online!"
+    a.innerText = "Carrinho"
+
+    header.append(h1, nav)
+    nav.append(ul)
+    ul.append(li, a)
+    body.append(header);
+}
+montarHeader()
+
+
+
+
+
+
+
+
+
+
 const carrinho = [];
 
-const container = document.getElementById("produtos");
+
 
 const adicionarCarrinho = (produto) =>{
 
    
 
     carrinho.push(produto);
-
+    const listaCarrinho = document.querySelector("#carrinho-lista")
+    const li = document.createElement("li")
+    const nome = document.createElement("nome")
+    const preco = document.createElement("preco")
+    const img = document.createElement("img")
+    nome.innerText = produto.nome 
+    preco.innerText = `R$ ${produto.preco}`
+    img.src = produto.imagem
+    li.append(img, nome, preco)
+    listaCarrinho.append(li)
+ 
+    
     console.log(carrinho,'carrinho');
 
 
 }
 
 produtos.forEach(element => {
-   
-    // <li>
-    //                 <div class="produtos">
-    //                 <h3>Geladeira</h3>
-    //                 <img src="imagens/Geladeira.webp" alt="Geladeira">
-    //                     <span>Preço: R$ 2.300,00</span>
-    //                     <button type="button">Adicionar ao Carrinho</button>
-    //                 </div>
-    //             </li>
+   const container = document.getElementById("produtos");
     const li =document.createElement("li")
     const div =document.createElement("div")
     const h3 =document.createElement("h3")
@@ -45,5 +77,6 @@ produtos.forEach(element => {
     container.append(li)
     li.append(div)
     div.append(h3, img, span, button)
+    // body.appendChild(container);
 });
 
