@@ -6,16 +6,18 @@ defineEmits<{ mudar: [pagina: number] }>()
 <template>
   <nav v-if="totalPaginas > 1" class="paginacao" aria-label="Paginação">
     <button type="button" class="botao secundario" :disabled="pagina <= 1" @click="$emit('mudar', pagina - 1)">
-      Anterior
+      ‹ Anterior
     </button>
-    <span>Página {{ pagina }} de {{ totalPaginas }}</span>
+    <span class="indicador">
+      Página <strong>{{ pagina }}</strong> de {{ totalPaginas }}
+    </span>
     <button
       type="button"
       class="botao secundario"
       :disabled="pagina >= totalPaginas"
       @click="$emit('mudar', pagina + 1)"
     >
-      Próxima
+      Próxima ›
     </button>
   </nav>
 </template>
@@ -26,6 +28,17 @@ defineEmits<{ mudar: [pagina: number] }>()
   justify-content: center;
   align-items: center;
   gap: 16px;
-  margin-top: 24px;
+  margin-top: 32px;
+}
+.indicador {
+  color: var(--cor-texto-suave);
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.875rem;
+}
+.indicador strong {
+  color: var(--cor-primaria);
 }
 </style>

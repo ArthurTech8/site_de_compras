@@ -5,14 +5,21 @@ import { useCarrinhoStore } from '@/stores/carrinho'
 
 const carrinho = useCarrinhoStore()
 onMounted(() => carrinho.carregar().catch(() => {}))
+
+// Cada troca de tela começa do topo, depois que a anterior saiu.
+const voltarAoTopo = () => window.scrollTo({ top: 0 })
 </script>
 
 <template>
   <AppHeader />
   <main class="container">
-    <RouterView />
+    <RouterView v-slot="{ Component, route }">
+      <Transition name="pagina" mode="out-in" @after-leave="voltarAoTopo">
+        <component :is="Component" :key="route.path" />
+      </Transition>
+    </RouterView>
   </main>
-  <footer class="rodape">
+  <footer class="rodape nao-imprimir">
     <p>&copy; {{ new Date().getFullYear() }} Loja Online. Todos os direitos reservados.</p>
   </footer>
 </template>
