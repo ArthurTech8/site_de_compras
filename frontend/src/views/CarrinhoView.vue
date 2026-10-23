@@ -87,9 +87,7 @@ function mudarQuantidade(produtoId: number, evento: Event) {
         <button type="button" class="botao secundario" :disabled="carrinho.carregando" @click="carrinho.limpar().catch(ignorar)">
           Esvaziar carrinho
         </button>
-        <button type="button" class="botao" disabled title="O checkout chega junto com pedidos e pagamento">
-          Finalizar compra (em breve)
-        </button>
+        <RouterLink to="/checkout" class="botao" :class="{ desativado: carrinho.carregando }">Finalizar compra</RouterLink>
       </div>
     </template>
   </section>
@@ -135,6 +133,10 @@ input[type='number'] {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 24px;
+}
+.desativado {
+  opacity: 0.5;
+  pointer-events: none;
 }
 .vazio {
   display: flex;

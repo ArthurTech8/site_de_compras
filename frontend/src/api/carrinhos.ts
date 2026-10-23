@@ -1,5 +1,5 @@
 import { request } from './http'
-import type { Carrinho } from './types'
+import type { Carrinho, OpcoesPagamento } from './types'
 
 const base = '/api/v1/carrinhos'
 
@@ -13,4 +13,6 @@ export const carrinhosApi = {
   removerItem: (id: string, produtoId: number) =>
     request<Carrinho>('DELETE', `${base}/${id}/itens/${produtoId}`),
   limpar: (id: string) => request<Carrinho>('DELETE', `${base}/${id}/itens`),
+  /** Pix, débito e crédito calculados no servidor sobre o total do carrinho. */
+  opcoesPagamento: (id: string) => request<OpcoesPagamento>('GET', `${base}/${id}/pagamento`),
 }
