@@ -3,7 +3,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { carrinhosApi } from '@/api/carrinhos'
 import type { FormaPagamento, OpcoesPagamento } from '@/api/types'
+import EtapasCompra from '@/components/EtapasCompra.vue'
 import { useCarrinhoStore } from '@/stores/carrinho'
+import { alertaErro, carregando as mostrarProcessando, confirmar, escapar, fecharAlerta } from '@/utils/alertas'
 import { formatarPercentual, formatarPreco } from '@/utils/formatar'
 
 const carrinho = useCarrinhoStore()
@@ -46,14 +48,40 @@ async function carregarOpcoes() {
   }
 }
 
+const nomesForma: Record<FormaPagamento, string> = { Pix: 'Pix', Debito: 'Débito', Credito: 'Crédito' }
+
+function resumoConfirmacao(): string {
+  const linhas: [string, string][] = [['Forma', nomesForma[forma.value]]]
+  if (forma.value === 'Credito' && parcelamento.value)
+    linhas.push(['Parcelas', `${parcelamento.value.parcelas}x de ${formatarPreco(parcelamento.value.valorParcela)}`])
+  if (forma.value === 'Pix' && opcoes.value)
+    linhas.push(['Desconto', `− ${formatarPreco(opcoes.value.pix.desconto)}`])
+  linhas.push(['Total', formatarPreco(totalAPagar.value)])
+  return `<div class="resumo-alerta">${linhas
+    .map(([r, v]) => `<span>${escapar(r)}</span><strong>${escapar(v)}</strong>`)
+    .join('')}</div>`
+}
+
 async function pagar() {
+  const ok = await confirmar({
+    titulo: 'Confirmar pagamento?',
+    html: resumoConfirmacao(),
+    confirmar: 'Pagar agora',
+    cancelar: 'Revisar',
+    icone: 'info',
+  })
+  if (!ok) return
+
   pagando.value = true
   erro.value = null
+  mostrarProcessando('Processando pagamento…', 'Só um instante, estamos confirmando com o banco.')
   try {
     const pedido = await carrinho.finalizar(forma.value, forma.value === 'Credito' ? parcelas.value : undefined)
+    fecharAlerta()
     await router.push({ name: 'pedido', params: { id: pedido.id } })
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Não foi possível finalizar a compra.'
+    void alertaErro('Pagamento não concluído', erro.value)
   } finally {
     pagando.value = false
   }
@@ -68,11 +96,13 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
 
 <template>
   <section>
-    <h2>Pagamento</h2>
+    <EtapasCompra v-if="!carrinho.vazio" :atual="2" />
+    <h2 class="titulo-pagina">Pagamento</h2>
 
     <p v-if="erro" class="erro" role="alert">{{ erro }}</p>
 
     <div v-if="carrinho.vazio" class="vazio">
+      <span class="icone-vazio" aria-hidden="true">🛒</span>
       <p>Seu carrinho está vazio.</p>
       <RouterLink to="/" class="botao">Ver produtos</RouterLink>
     </div>
@@ -86,11 +116,13 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
           <label class="cabecalho">
             <input v-model="forma" type="radio" name="forma" value="Pix" />
             <span class="titulo">
+              <span class="icone pix" aria-hidden="true">⚡</span>
               Pix
               <span v-if="opcoes.pix.descontoPercentual > 0" class="selo">{{ opcoes.pix.descontoPercentual }}% off</span>
             </span>
             <strong class="valor" data-testid="total-pix">{{ formatarPreco(opcoes.pix.total) }}</strong>
           </label>
+          <Transition name="expandir">
           <div v-if="forma === 'Pix'" class="detalhe">
             <p>
               Desconto de <strong>{{ opcoes.pix.descontoPercentual }}%</strong>
@@ -111,13 +143,14 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
               </li>
             </ul>
           </div>
+          </Transition>
         </div>
 
         <!-- Débito -->
         <div class="forma" :class="{ selecionada: forma === 'Debito' }">
           <label class="cabecalho">
             <input v-model="forma" type="radio" name="forma" value="Debito" />
-            <span class="titulo">Débito</span>
+            <span class="titulo"><span class="icone debito" aria-hidden="true">🏦</span>Débito</span>
             <strong class="valor" data-testid="total-debito">{{ formatarPreco(opcoes.debito.total) }}</strong>
           </label>
         </div>
@@ -126,11 +159,12 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
         <div class="forma" :class="{ selecionada: forma === 'Credito' }">
           <label class="cabecalho">
             <input v-model="forma" type="radio" name="forma" value="Credito" />
-            <span class="titulo">Crédito</span>
+            <span class="titulo"><span class="icone credito" aria-hidden="true">💳</span>Crédito</span>
             <strong class="valor">
               de {{ opcoes.credito.parcelasMinimas }}x a {{ opcoes.credito.parcelasMaximas }}x
             </strong>
           </label>
+          <Transition name="expandir">
           <div v-if="forma === 'Credito'" class="detalhe">
             <label class="campo">
               Parcelas
@@ -153,6 +187,7 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
               {{ formatarPreco(opcoes.subtotal) }}.
             </p>
           </div>
+          </Transition>
         </div>
       </div>
 
@@ -174,10 +209,10 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
         <p class="linha total">
           <span>A pagar</span><span data-testid="total-a-pagar">{{ formatarPreco(totalAPagar) }}</span>
         </p>
-        <button type="button" class="botao" :disabled="pagando || carregando" @click="pagar">
-          {{ pagando ? 'Processando…' : 'Pagar' }}
+        <button type="button" class="botao destaque grande" :disabled="pagando || carregando" @click="pagar">
+          {{ pagando ? 'Processando…' : `Pagar ${formatarPreco(totalAPagar)}` }}
         </button>
-        <p class="nota">Pagamento simulado: nenhuma cobrança real é feita.</p>
+        <p class="nota">🔒 Pagamento simulado: nenhuma cobrança real é feita.</p>
         <RouterLink to="/carrinho">Voltar ao carrinho</RouterLink>
       </aside>
     </div>
@@ -187,24 +222,59 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
 <style scoped>
 .checkout {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr 340px;
   gap: 24px;
-  margin-top: 16px;
+  margin-top: 20px;
   align-items: start;
 }
 .formas {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 .forma {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
   background: var(--cor-superficie);
   border: 1px solid var(--cor-borda);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: var(--raio-lg);
+  padding: 18px 20px;
+  box-shadow: var(--sombra-sm);
+  transition:
+    border-color 0.3s,
+    box-shadow 0.3s var(--ease-suave),
+    transform 0.3s var(--ease-suave);
+  animation: surgir 0.5s var(--ease-suave) backwards;
+}
+.forma:nth-child(2) {
+  animation-delay: 60ms;
+}
+.forma:nth-child(3) {
+  animation-delay: 120ms;
+}
+.forma:hover {
+  border-color: #b8c4d2;
+  transform: translateY(-2px);
+  box-shadow: var(--sombra-md);
+}
+.forma.selecionada {
+  border-color: var(--cor-primaria);
+  box-shadow:
+    0 0 0 1px var(--cor-primaria),
+    var(--sombra-md);
+  background: linear-gradient(180deg, #f6faff, var(--cor-superficie) 70%);
+}
+.forma.selecionada::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 16px;
+  bottom: 16px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--gradiente-destaque);
 }
 .cabecalho {
   display: grid;
@@ -213,31 +283,65 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
   gap: 12px;
   cursor: pointer;
 }
-.forma.selecionada {
-  border-color: var(--cor-primaria);
-  box-shadow: 0 0 0 1px var(--cor-primaria);
+.cabecalho input {
+  accent-color: var(--cor-primaria);
+  width: 18px;
+  height: 18px;
 }
 .titulo {
   font-weight: 500;
+  font-size: 1.0625rem;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+.icone {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 1.125rem;
+  background: var(--cor-primaria-suave);
+  transition: transform 0.4s var(--ease-mola);
+}
+.icone.pix {
+  background: var(--cor-sucesso-suave);
+}
+.icone.credito {
+  background: var(--cor-destaque-suave);
+}
+.forma.selecionada .icone {
+  transform: scale(1.1) rotate(-6deg);
 }
 .selo {
-  background: var(--cor-sucesso);
+  background: var(--gradiente-sucesso);
   color: #fff;
   border-radius: 999px;
   font-size: 0.75rem;
-  padding: 2px 8px;
+  padding: 3px 9px;
+  box-shadow: 0 2px 6px rgba(43, 138, 62, 0.3);
 }
 .valor {
   color: var(--cor-primaria);
+  font-size: 1.0625rem;
 }
 .detalhe {
   display: flex;
   flex-direction: column;
   gap: 12px;
   font-size: 0.9375rem;
+  padding-top: 12px;
+  border-top: 1px dashed var(--cor-borda);
+}
+.expandir-enter-active {
+  transition:
+    opacity 0.35s var(--ease-suave),
+    transform 0.35s var(--ease-suave);
+}
+.expandir-enter-from {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 .descontos {
   list-style: none;
@@ -249,10 +353,13 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
   display: flex;
   justify-content: space-between;
   color: var(--cor-texto-suave);
+  padding: 6px 10px;
+  border-radius: var(--raio-sm);
 }
 .descontos li.aplicado {
   color: var(--cor-sucesso);
   font-weight: 700;
+  background: var(--cor-sucesso-suave);
 }
 .campo select {
   max-width: 260px;
@@ -261,7 +368,10 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
   display: grid;
   grid-template-columns: auto auto;
   justify-content: start;
-  gap: 4px 16px;
+  gap: 6px 20px;
+  padding: 12px 14px;
+  background: var(--cor-fundo);
+  border-radius: var(--raio-md);
 }
 .resumo-credito dt {
   color: var(--cor-texto-suave);
@@ -280,13 +390,18 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
   font-size: 0.8125rem;
 }
 .resumo {
+  position: sticky;
+  top: 100px;
   background: var(--cor-superficie);
   border: 1px solid var(--cor-borda);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: var(--raio-lg);
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  box-shadow: var(--sombra-md);
+  border-top: 4px solid var(--cor-primaria);
+  animation: surgir 0.5s 0.15s var(--ease-suave) backwards;
 }
 .resumo h3 {
   font-size: 1.125rem;
@@ -295,8 +410,10 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   font-size: 0.875rem;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--cor-borda);
 }
 .resumo li,
 .linha {
@@ -305,23 +422,23 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
   gap: 12px;
 }
 .linha.total {
-  font-size: 1.25rem;
+  font-size: 1.375rem;
   font-weight: 700;
   color: var(--cor-primaria);
   border-top: 1px solid var(--cor-borda);
-  padding-top: 10px;
+  padding-top: 12px;
+  margin-top: 2px;
 }
-.vazio {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-  margin-top: 16px;
+.resumo .botao {
+  margin-top: 6px;
 }
 
 @media (max-width: 800px) {
   .checkout {
     grid-template-columns: 1fr;
+  }
+  .resumo {
+    position: static;
   }
 }
 </style>

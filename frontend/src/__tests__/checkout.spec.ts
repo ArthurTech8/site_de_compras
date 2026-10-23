@@ -5,6 +5,16 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import CheckoutView from '@/views/CheckoutView.vue'
 import { useCarrinhoStore } from '@/stores/carrinho'
 import type { Carrinho, OpcoesPagamento } from '@/api/types'
+import { confirmar } from '@/utils/alertas'
+
+// Os modais do SweetAlert2 não importam aqui: o teste decide se o usuário confirmou.
+vi.mock('@/utils/alertas', () => ({
+  confirmar: vi.fn(async () => true),
+  carregando: vi.fn(),
+  fecharAlerta: vi.fn(),
+  alertaErro: vi.fn(),
+  escapar: (t: string) => t,
+}))
 
 const carrinho: Carrinho = {
   id: 'abc',
@@ -121,5 +131,17 @@ describe('checkout', () => {
       parcelas: 10,
     })
     expect(router.currentRoute.value.fullPath).toBe('/pedidos/p1')
+  })
+
+  it('não paga quando o usuário cancela a confirmação', async () => {
+    vi.mocked(confirmar).mockResolvedValueOnce(false)
+    fetchMock.mockResolvedValueOnce(resposta(200, opcoes))
+    const { wrapper, router } = await montar()
+
+    await wrapper.get('.resumo .botao').trigger('click')
+    await flushPromises()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.fullPath).toBe('/checkout')
   })
 })
