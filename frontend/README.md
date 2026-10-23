@@ -20,20 +20,21 @@ npm test           # testes (Vitest)
 npm run build      # checagem de tipos + build de produção em dist/
 ```
 
-Em produção, sirva `dist/` e defina `VITE_API_URL` no build se a API estiver em outro domínio
-(e libere esse domínio em `Cors:Origens` no backend).
+Em produção, o ideal é servir `dist/` e a API no mesmo domínio (proxy reverso), porque a sessão
+é um cookie `SameSite=Strict`. Se a API ficar em outro subdomínio do mesmo site, defina
+`VITE_API_URL` no build e libere a origem em `Cors:Origens` no backend.
 
 ## Estrutura
 
 ```
 src/
   api/          Cliente HTTP (fetch + erros ProblemDetails) e um módulo por recurso da API
-  stores/       Estado global com Pinia (carrinho; o id fica no localStorage)
+  stores/       Estado global com Pinia (carrinho, com o id no localStorage; sessão do usuário)
   composables/  Lógica reaproveitável (filtros de produto sincronizados com a URL)
   components/   Componentes de interface (cabeçalho, card de produto, paginação)
   views/        Páginas ligadas às rotas
   router/       Rotas (carregadas sob demanda)
-  utils/        Formatação de preço e de imagem
+  utils/        Formatação, alertas (SweetAlert2) e segurança (redirecionamento, força da senha)
 public/imagens  Imagens dos produtos (o backend guarda o caminho relativo)
 ```
 
@@ -51,3 +52,14 @@ uma store se o estado for compartilhado, a view e a rota.
   crédito de 6x a 16x com juros, exibindo o valor da parcela e a diferença para o total. O pagamento
   é simulado; a tela só envia a forma e as parcelas, e os valores são recalculados no servidor.
 - `/pedidos/:id` confirma o pedido com o resumo do pagamento.
+- `/entrar` e `/cadastro` abrem a sessão. Quem já está logado é levado para a loja. Depois do login a
+  tela volta para `?voltar=`, aceitando só caminhos do próprio site.
+
+## Sessão e segurança
+
+- A sessão é um cookie `HttpOnly` criado pelo backend. O frontend não guarda token, senha ou dados do
+  usuário no `localStorage`: ao abrir o site ele pergunta a `/api/v1/conta` quem está logado.
+- Toda chamada à API leva `credentials: 'include'` e o cabeçalho `X-Requested-With`, que o backend
+  exige em `POST`/`PUT`/`DELETE` contra CSRF.
+- Texto vindo da API só entra em HTML do SweetAlert2 depois de passar por `escapar()`.
+- A força da senha na tela de cadastro é só uma dica; quem valida é o backend.

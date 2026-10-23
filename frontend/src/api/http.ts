@@ -43,10 +43,18 @@ export async function request<T>(
   caminho: string,
   opcoes: { query?: Query; body?: unknown; signal?: AbortSignal } = {},
 ): Promise<T> {
+  const headers: Record<string, string> = {
+    // O backend recusa POST/PUT/DELETE sem este cabeçalho (defesa contra CSRF).
+    'X-Requested-With': 'fetch',
+  }
+  if (opcoes.body !== undefined) headers['Content-Type'] = 'application/json'
+
   const resposta = await fetch(montarUrl(caminho, opcoes.query), {
     method: metodo,
-    headers: opcoes.body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    headers,
     body: opcoes.body !== undefined ? JSON.stringify(opcoes.body) : undefined,
+    // A sessão é um cookie HttpOnly: o navegador envia sozinho e o JavaScript nunca o vê.
+    credentials: 'include',
     signal: opcoes.signal,
   })
 
