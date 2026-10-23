@@ -46,3 +46,8 @@ uma store se o estado for compartilhado, a view e a rota.
   (`/?busca=note&ordenacao=MaiorPreco`), então dá para compartilhar o link.
 - `/carrinho` mostra os itens, permite alterar quantidade, remover, esvaziar e exibe o total.
   Erros de regra de negócio do backend (ex.: estoque insuficiente) aparecem na tela.
+- `/checkout` mostra as formas de pagamento calculadas pelo backend sobre o total do carrinho:
+  Pix com o maior desconto entre os produtos (5% a 15%, sem acumular), débito sem alteração e
+  crédito de 6x a 16x com juros, exibindo o valor da parcela e a diferença para o total. O pagamento
+  é simulado; a tela só envia a forma e as parcelas, e os valores são recalculados no servidor.
+- `/pedidos/:id` confirma o pedido com o resumo do pagamento.

@@ -11,6 +11,7 @@ defineEmits<{ adicionar: [produto: Produto] }>()
     <img :src="urlImagem(produto.imagemUrl)" :alt="produto.nome" loading="lazy" />
     <h3>{{ produto.nome }}</h3>
     <p class="preco">{{ formatarPreco(produto.preco) }}</p>
+    <p class="pix">{{ produto.descontoPix }}% de desconto no Pix</p>
     <p v-if="produto.estoque === 0" class="esgotado">Esgotado</p>
     <button
       type="button"
@@ -46,6 +47,10 @@ h3 {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--cor-primaria);
+}
+.pix {
+  color: var(--cor-sucesso);
+  font-size: 0.875rem;
 }
 .esgotado {
   color: var(--cor-erro);
