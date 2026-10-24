@@ -295,6 +295,87 @@ td input:focus {
   clip: rect(0 0 0 0);
 }
 
+/* ---------- Entrar e cadastro ---------- */
+.pagina-conta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
+  max-width: 900px;
+  margin: 12px auto 0;
+  border-radius: var(--raio-lg);
+  overflow: hidden;
+  box-shadow: var(--sombra-lg);
+}
+.painel-marca {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 40px 32px;
+  color: rgba(255, 255, 255, 0.85);
+  background:
+    linear-gradient(160deg, rgba(6, 42, 82, 0.55) 0%, rgba(6, 42, 82, 0.92) 100%),
+    url('/imagens/fundo-dados-azul.jpg') center / cover;
+  border-right: 3px solid var(--cor-destaque);
+}
+.painel-marca .chamada {
+  font-family: 'Zen Dots', sans-serif;
+  font-size: 1.5rem;
+  color: #fff;
+}
+.selo-conta {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: auto;
+  border-radius: 16px;
+  font-size: 1.6rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  animation: flutuar 3s ease-in-out infinite;
+}
+.formulario-conta {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 32px 28px;
+  border: 0;
+  border-radius: 0;
+}
+.formulario-conta .campo input {
+  width: 100%;
+}
+.formulario-conta .botao {
+  margin-top: 4px;
+}
+.formulario-conta .erro {
+  margin: 0;
+}
+.alternativa {
+  text-align: center;
+  font-size: 0.9375rem;
+  color: var(--cor-texto-suave);
+}
+.alternativa a {
+  font-weight: 500;
+}
+@media (max-width: 720px) {
+  .pagina-conta {
+    grid-template-columns: 1fr;
+  }
+  .painel-marca {
+    padding: 24px;
+    border-right: 0;
+    border-bottom: 3px solid var(--cor-destaque);
+  }
+  .selo-conta {
+    display: none;
+  }
+  .formulario-conta {
+    padding: 24px 20px;
+  }
+}
+
 /* ---------- Transição entre telas ---------- */
 .pagina-enter-active {
   transition:

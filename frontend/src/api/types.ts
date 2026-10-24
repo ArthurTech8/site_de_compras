@@ -114,3 +114,13 @@ export interface Pedido {
   itens: ItemPedido[]
   pagamento: CondicaoPagamento
 }
+
+export type PapelUsuario = 'Cliente' | 'Admin'
+
+/** O backend nunca devolve hash, bloqueio ou qualquer dado da senha. */
+export interface Usuario {
+  id: string
+  nome: string
+  email: string
+  papel: PapelUsuario
+}

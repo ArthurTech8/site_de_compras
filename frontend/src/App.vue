@@ -2,9 +2,14 @@
 import { onMounted } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import { useCarrinhoStore } from '@/stores/carrinho'
+import { useSessaoStore } from '@/stores/sessao'
 
 const carrinho = useCarrinhoStore()
-onMounted(() => carrinho.carregar().catch(() => {}))
+const sessao = useSessaoStore()
+onMounted(() => {
+  carrinho.carregar().catch(() => {})
+  if (!sessao.verificada) sessao.carregar().catch(() => {})
+})
 
 // Cada troca de tela começa do topo, depois que a anterior saiu.
 const voltarAoTopo = () => window.scrollTo({ top: 0 })

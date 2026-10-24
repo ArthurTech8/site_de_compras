@@ -1,8 +1,22 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useCarrinhoStore } from '@/stores/carrinho'
+import { useSessaoStore } from '@/stores/sessao'
+import { confirmar, toastSucesso } from '@/utils/alertas'
 
 const carrinho = useCarrinhoStore()
+const sessao = useSessaoStore()
+const route = useRoute()
+const router = useRouter()
+
+async function sair() {
+  const ok = await confirmar({ titulo: 'Sair da conta?', confirmar: 'Sair', cancelar: 'Ficar', icone: 'question' })
+  if (!ok) return
+  await sessao.sair().catch(() => {})
+  void toastSucesso('Você saiu da conta')
+  await router.push({ name: 'produtos' })
+}
 
 // O selo "pula" sempre que a quantidade muda.
 const pulando = ref(false)
@@ -43,6 +57,20 @@ onBeforeUnmount(() => window.removeEventListener('scroll', aoRolar))
             {{ carrinho.quantidadeTotal }}
           </span>
         </Transition>
+      </RouterLink>
+      <template v-if="sessao.logado">
+        <span class="usuario" data-testid="usuario-logado">
+          <span class="avatar" aria-hidden="true">{{ sessao.primeiroNome.charAt(0).toUpperCase() }}</span>
+          <span class="nome-usuario">{{ sessao.primeiroNome }}</span>
+        </span>
+        <button type="button" class="link-sair" @click="sair">Sair</button>
+      </template>
+      <RouterLink
+        v-else-if="sessao.verificada"
+        :to="{ name: 'entrar', query: route.meta.somenteVisitante ? {} : { voltar: route.fullPath } }"
+        class="link-entrar"
+      >
+        Entrar
       </RouterLink>
     </nav>
   </header>
@@ -107,6 +135,7 @@ h1 {
 }
 nav {
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 nav a {
@@ -126,6 +155,60 @@ nav a.router-link-exact-active {
   color: #fff;
   background: rgba(255, 255, 255, 0.18);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.link-entrar {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+.usuario {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 6px;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--gradiente-destaque);
+  font-family: 'Zen Dots', sans-serif;
+  font-size: 0.875rem;
+}
+.link-sair {
+  font: inherit;
+  color: rgba(255, 255, 255, 0.85);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 999px;
+  transition: background 0.2s;
+}
+.link-sair:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+@media (max-width: 560px) {
+  .nome-usuario {
+    display: none;
+  }
+  nav {
+    gap: 2px;
+    font-size: 0.8125rem;
+  }
+  nav a,
+  .link-sair {
+    padding: 7px 9px;
+  }
+}
+@media (max-width: 480px) {
+  /* Com o menu de conta não cabe tudo: fica só o logo. */
+  .marca h1 {
+    display: none;
+  }
 }
 .link-carrinho {
   display: inline-flex;
