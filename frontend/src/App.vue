@@ -25,6 +25,20 @@ const voltarAoTopo = () => window.scrollTo({ top: 0 })
     </RouterView>
   </main>
   <footer class="rodape nao-imprimir">
+    <p>
+      <RouterLink :to="{ name: 'rastreio' }" class="link-rodape">Rastrear pacote</RouterLink>
+    </p>
     <p>&copy; {{ new Date().getFullYear() }} Loja Online. Todos os direitos reservados.</p>
   </footer>
 </template>
+
+<style scoped>
+.link-rodape {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rodape p + p {
+  margin-top: 6px;
+}
+</style>

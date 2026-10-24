@@ -107,15 +107,127 @@ export interface ItemPedido {
   subtotal: number
 }
 
+export type StatusPedido = 'Pago' | 'EmPreparacao' | 'Enviado' | 'Entregue'
+
+export interface Endereco {
+  destinatario: string
+  /** Só os 8 dígitos. Ao enviar, o backend também aceita com hífen. */
+  cep: string
+  logradouro: string
+  numero: string
+  complemento: string | null
+  bairro: string
+  cidade: string
+  uf: string
+}
+
+export interface EnderecoSalvo {
+  id: number
+  endereco: Endereco
+  criadoEm: string
+}
+
 export interface Pedido {
   id: string
-  status: 'Pago'
+  status: StatusPedido
   criadoEm: string
   itens: ItemPedido[]
   pagamento: CondicaoPagamento
+  /** Nulo só em pedidos feitos antes da logística existir. */
+  enderecoEntrega: Endereco | null
 }
 
-export type PapelUsuario = 'Cliente' | 'Admin'
+/** Uma linha de "Meus pedidos". */
+export interface PedidoResumo {
+  id: string
+  status: StatusPedido
+  criadoEm: string
+  total: number
+  quantidadeItens: number
+  primeiroItem: string
+  imagemUrl: string | null
+}
+
+/** Etapas do envio, na ordem em que acontecem. */
+export const ETAPAS_ENVIO = [
+  'AguardandoSeparacao',
+  'EmSeparacao',
+  'Separado',
+  'Embalado',
+  'ProntoParaEnvio',
+  'Expedido',
+  'EmTransito',
+  'SaiuParaEntrega',
+  'Entregue',
+] as const
+
+export type StatusEnvio = (typeof ETAPAS_ENVIO)[number]
+
+export interface EventoRastreio {
+  data: string
+  status: StatusEnvio
+  descricao: string
+  /** Cidade e UF, como "São Paulo, SP". */
+  local: string
+}
+
+export interface Envio {
+  id: string
+  pedidoId: string
+  /** Nasce junto com a etiqueta, em ProntoParaEnvio. */
+  codigoRastreio: string | null
+  status: StatusEnvio
+  destino: Endereco
+  criadoEm: string
+  atualizadoEm: string
+  prazoDespacho: string
+  previsaoEntrega: string
+  atrasado: boolean
+  eventos: EventoRastreio[]
+}
+
+/** Uma linha da fila de envios do back-office. */
+export interface EnvioResumo {
+  id: string
+  pedidoId: string
+  codigoRastreio: string | null
+  status: StatusEnvio
+  destinatario: string
+  cidade: string
+  uf: string
+  criadoEm: string
+  atualizadoEm: string
+  prazoDespacho: string
+  previsaoEntrega: string
+  atrasado: boolean
+}
+
+/** O rastreio aberto: sem nome, rua ou itens. */
+export interface RastreioPublico {
+  codigoRastreio: string
+  status: StatusEnvio
+  cidadeDestino: string
+  ufDestino: string
+  previsaoEntrega: string
+  eventos: EventoRastreio[]
+}
+
+export interface PainelLogistica {
+  porStatus: Record<StatusEnvio, number>
+  atrasados: number
+  despachoVenceHoje: number
+  entreguesHoje: number
+}
+
+export interface EnvioFiltro {
+  status?: StatusEnvio
+  atrasados?: boolean
+  busca?: string
+  pagina?: number
+  tamanhoPagina?: number
+}
+
+export type PapelUsuario = 'Cliente' | 'Admin' | 'OperadorCD' | 'Entregador' | 'Atendimento'
 
 /** O backend nunca devolve hash, bloqueio ou qualquer dado da senha. */
 export interface Usuario {

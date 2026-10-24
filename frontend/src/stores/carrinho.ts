@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { carrinhosApi } from '@/api/carrinhos'
 import { pedidosApi } from '@/api/pedidos'
 import { ApiError } from '@/api/http'
-import type { Carrinho, FormaPagamento, Pedido } from '@/api/types'
+import type { Carrinho, Endereco, FormaPagamento, Pedido } from '@/api/types'
 
 const CHAVE_STORAGE = 'carrinhoId'
 
@@ -122,12 +122,12 @@ export const useCarrinhoStore = defineStore('carrinho', () => {
    * Fecha o carrinho em um pedido com a forma de pagamento escolhida. O backend recalcula os
    * valores e esvazia o carrinho; aqui só recarregamos o estado.
    */
-  async function finalizar(formaPagamento: FormaPagamento, parcelas?: number): Promise<Pedido> {
+  async function finalizar(formaPagamento: FormaPagamento, parcelas: number | undefined, enderecoEntrega: Endereco): Promise<Pedido> {
     if (!carrinho.value) throw new Error('O carrinho está vazio.')
     const carrinhoId = carrinho.value.id
     let pedido: Pedido | undefined
     await executar(async () => {
-      pedido = await pedidosApi.fechar({ carrinhoId, formaPagamento, parcelas })
+      pedido = await pedidosApi.fechar({ carrinhoId, formaPagamento, parcelas, enderecoEntrega })
       definir(await carrinhosApi.obter(carrinhoId))
     })
     return pedido!
