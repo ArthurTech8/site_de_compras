@@ -2,14 +2,63 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { carrinhosApi } from '@/api/carrinhos'
-import type { FormaPagamento, OpcoesPagamento } from '@/api/types'
+import { contaApi } from '@/api/conta'
+import type { Endereco, EnderecoSalvo, FormaPagamento, OpcoesPagamento } from '@/api/types'
 import EtapasCompra from '@/components/EtapasCompra.vue'
+import FormularioEndereco from '@/components/FormularioEndereco.vue'
 import { useCarrinhoStore } from '@/stores/carrinho'
+import { useSessaoStore } from '@/stores/sessao'
 import { alertaErro, carregando as mostrarProcessando, confirmar, escapar, fecharAlerta } from '@/utils/alertas'
 import { formatarPercentual, formatarPreco } from '@/utils/formatar'
+import { UFS, cidadeEndereco, linhaEndereco } from '@/utils/logistica'
 
 const carrinho = useCarrinhoStore()
+const sessao = useSessaoStore()
 const router = useRouter()
+
+// ---------- Entrega ----------
+const enderecosSalvos = ref<EnderecoSalvo[]>([])
+/** Id do endereço salvo escolhido, ou 'novo' para digitar um. */
+const escolhido = ref<number | 'novo'>('novo')
+const novoEndereco = ref<Endereco>({
+  destinatario: '', cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
+})
+const salvarNaConta = ref(true)
+const errosEndereco = ref<Partial<Record<keyof Endereco, string>>>({})
+
+const enderecoEntrega = computed<Endereco>(() =>
+  escolhido.value === 'novo'
+    ? novoEndereco.value
+    : (enderecosSalvos.value.find((e) => e.id === escolhido.value)?.endereco ?? novoEndereco.value),
+)
+
+async function carregarEnderecos() {
+  if (!sessao.logado) {
+    enderecosSalvos.value = []
+    escolhido.value = 'novo'
+    return
+  }
+  try {
+    enderecosSalvos.value = await contaApi.enderecos()
+    if (enderecosSalvos.value.length) escolhido.value = enderecosSalvos.value[0].id
+  } catch {
+    // Sem a lista, o cliente ainda pode digitar o endereço.
+    enderecosSalvos.value = []
+  }
+}
+
+/** As mesmas regras do backend, para avisar antes de enviar. */
+function validarEndereco(e: Endereco): Partial<Record<keyof Endereco, string>> {
+  const erros: Partial<Record<keyof Endereco, string>> = {}
+  if (e.destinatario.trim().length < 2) erros.destinatario = 'Informe o nome de quem vai receber.'
+  if (e.cep.replace(/\D/g, '').length !== 8) erros.cep = 'O CEP precisa ter 8 dígitos.'
+  if (!e.logradouro.trim()) erros.logradouro = 'Informe a rua.'
+  if (!e.numero.trim()) erros.numero = 'Informe o número.'
+  if (!e.bairro.trim()) erros.bairro = 'Informe o bairro.'
+  if (!e.cidade.trim()) erros.cidade = 'Informe a cidade.'
+  if (!(UFS as readonly string[]).includes(e.uf)) erros.uf = 'Escolha a UF.'
+  return erros
+}
 
 const opcoes = ref<OpcoesPagamento | null>(null)
 const carregando = ref(false)
@@ -51,7 +100,11 @@ async function carregarOpcoes() {
 const nomesForma: Record<FormaPagamento, string> = { Pix: 'Pix', Debito: 'Débito', Credito: 'Crédito' }
 
 function resumoConfirmacao(): string {
-  const linhas: [string, string][] = [['Forma', nomesForma[forma.value]]]
+  const e = enderecoEntrega.value
+  const linhas: [string, string][] = [
+    ['Entrega', `${e.cidade}, ${e.uf}`],
+    ['Forma', nomesForma[forma.value]],
+  ]
   if (forma.value === 'Credito' && parcelamento.value)
     linhas.push(['Parcelas', `${parcelamento.value.parcelas}x de ${formatarPreco(parcelamento.value.valorParcela)}`])
   if (forma.value === 'Pix' && opcoes.value)
@@ -63,6 +116,13 @@ function resumoConfirmacao(): string {
 }
 
 async function pagar() {
+  errosEndereco.value = escolhido.value === 'novo' ? validarEndereco(novoEndereco.value) : {}
+  if (Object.keys(errosEndereco.value).length) {
+    erro.value = 'Confira o endereço de entrega.'
+    document.getElementById('entrega')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    return
+  }
+
   const ok = await confirmar({
     titulo: 'Confirmar pagamento?',
     html: resumoConfirmacao(),
@@ -76,9 +136,13 @@ async function pagar() {
   erro.value = null
   mostrarProcessando('Processando pagamento…', 'Só um instante, estamos confirmando com o banco.')
   try {
-    const pedido = await carrinho.finalizar(forma.value, forma.value === 'Credito' ? parcelas.value : undefined)
+    const endereco = { ...enderecoEntrega.value }
+    if (escolhido.value === 'novo' && sessao.logado && salvarNaConta.value)
+      // Guardar é conveniência: se falhar (ex.: limite de endereços), a compra segue.
+      await contaApi.salvarEndereco(endereco).catch(() => {})
+    const pedido = await carrinho.finalizar(forma.value, forma.value === 'Credito' ? parcelas.value : undefined, endereco)
     fecharAlerta()
-    await router.push({ name: 'pedido', params: { id: pedido.id } })
+    await router.push({ name: 'pedido', params: { id: pedido.id }, query: { novo: '1' } })
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Não foi possível finalizar a compra.'
     void alertaErro('Pagamento não concluído', erro.value)
@@ -87,7 +151,11 @@ async function pagar() {
   }
 }
 
-onMounted(carregarOpcoes)
+onMounted(() => {
+  void carregarOpcoes()
+  void carregarEnderecos()
+})
+watch(() => sessao.logado, carregarEnderecos)
 // O carrinho pode terminar de carregar depois que a página abre (ex.: F5 direto no /checkout).
 watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
   if (atual !== anterior && !pagando.value) carregarOpcoes()
@@ -97,7 +165,7 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
 <template>
   <section>
     <EtapasCompra v-if="!carrinho.vazio" :atual="2" />
-    <h2 class="titulo-pagina">Pagamento</h2>
+    <h2 class="titulo-pagina">Entrega e pagamento</h2>
 
     <p v-if="erro" class="erro" role="alert">{{ erro }}</p>
 
@@ -110,6 +178,39 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
     <p v-else-if="carregando && !opcoes">Calculando as formas de pagamento…</p>
 
     <div v-else-if="opcoes" class="checkout">
+      <div class="coluna">
+      <section id="entrega" class="entrega" aria-labelledby="titulo-entrega">
+        <h3 id="titulo-entrega"><span class="icone" aria-hidden="true">📦</span>Entrega</h3>
+
+        <div v-if="enderecosSalvos.length" class="salvos" role="radiogroup" aria-label="Endereço de entrega">
+          <label v-for="s in enderecosSalvos" :key="s.id" class="salvo" :class="{ selecionado: escolhido === s.id }">
+            <input v-model="escolhido" type="radio" name="endereco" :value="s.id" />
+            <span>
+              <strong>{{ s.endereco.destinatario }}</strong>
+              <span>{{ linhaEndereco(s.endereco) }}</span>
+              <span>{{ cidadeEndereco(s.endereco) }}</span>
+            </span>
+          </label>
+          <label class="salvo" :class="{ selecionado: escolhido === 'novo' }">
+            <input v-model="escolhido" type="radio" name="endereco" value="novo" data-testid="novo-endereco" />
+            <span><strong>Usar outro endereço</strong></span>
+          </label>
+        </div>
+
+        <template v-if="escolhido === 'novo'">
+          <FormularioEndereco v-model="novoEndereco" :erros="errosEndereco" />
+          <label v-if="sessao.logado" class="salvar-conta">
+            <input v-model="salvarNaConta" type="checkbox" />
+            Salvar este endereço na minha conta
+          </label>
+          <p v-else class="nota">
+            <RouterLink :to="{ name: 'entrar', query: { voltar: '/checkout' } }">Entre</RouterLink>
+            para usar endereços salvos e acompanhar o pedido em "Meus pedidos".
+          </p>
+        </template>
+      </section>
+
+      <h3 class="titulo-secao"><span class="icone" aria-hidden="true">💰</span>Pagamento</h3>
       <div class="formas" role="radiogroup" aria-label="Forma de pagamento">
         <!-- Pix -->
         <div class="forma" :class="{ selecionada: forma === 'Pix' }">
@@ -190,6 +291,7 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
           </Transition>
         </div>
       </div>
+      </div>
 
       <aside class="resumo">
         <h3>Resumo do pedido</h3>
@@ -220,6 +322,79 @@ watch(() => carrinho.carrinho?.atualizadoEm, (atual, anterior) => {
 </template>
 
 <style scoped>
+.coluna {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.entrega {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-lg);
+  padding: 18px 20px;
+  box-shadow: var(--sombra-sm);
+  scroll-margin-top: 110px;
+  animation: surgir 0.5s var(--ease-suave) backwards;
+}
+.entrega h3,
+.titulo-secao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.0625rem;
+}
+.titulo-secao {
+  margin-top: 6px;
+}
+.salvos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.salvo {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-md);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.salvo.selecionado {
+  border-color: var(--cor-primaria);
+  background: var(--cor-primaria-suave);
+}
+.salvo input {
+  accent-color: var(--cor-primaria);
+  margin-top: 3px;
+}
+.salvo > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.875rem;
+  color: var(--cor-texto-suave);
+}
+.salvo strong {
+  color: var(--cor-texto);
+  font-weight: 500;
+}
+.salvar-conta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.salvar-conta input {
+  accent-color: var(--cor-primaria);
+}
 .checkout {
   display: grid;
   grid-template-columns: 1fr 340px;

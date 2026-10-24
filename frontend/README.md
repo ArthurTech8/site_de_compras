@@ -47,11 +47,17 @@ uma store se o estado for compartilhado, a view e a rota.
   (`/?busca=note&ordenacao=MaiorPreco`), então dá para compartilhar o link.
 - `/carrinho` mostra os itens, permite alterar quantidade, remover, esvaziar e exibe o total.
   Erros de regra de negócio do backend (ex.: estoque insuficiente) aparecem na tela.
-- `/checkout` mostra as formas de pagamento calculadas pelo backend sobre o total do carrinho:
+- `/checkout` pede o endereço de entrega (logado, dá para escolher um salvo ou salvar o novo) e mostra as formas de pagamento calculadas pelo backend sobre o total do carrinho:
   Pix com o maior desconto entre os produtos (5% a 15%, sem acumular), débito sem alteração e
   crédito de 6x a 16x com juros, exibindo o valor da parcela e a diferença para o total. O pagamento
-  é simulado; a tela só envia a forma e as parcelas, e os valores são recalculados no servidor.
-- `/pedidos/:id` confirma o pedido com o resumo do pagamento.
+  é simulado; a tela só envia a forma, as parcelas e o endereço, e os valores são recalculados no servidor.
+- `/pedidos/:id` confirma o pedido (com confete, quando vem do checkout) e acompanha a entrega:
+  previsão, código de rastreio, endereço e a linha do tempo do envio, atualizada a cada 20 segundos.
+- `/pedidos` lista os pedidos da conta (pede login).
+- `/rastreio/:codigo` é o rastreio aberto, sem login: só cidade de destino, previsão e eventos.
+- `/admin/logistica` é o back-office da equipe (admin, operador do CD, entregador e atendimento):
+  envios por etapa, despachos atrasados, fila com busca e filtros, histórico de cada envio e o botão
+  que leva o envio para a próxima etapa. O atendimento só consulta.
 - `/entrar` e `/cadastro` abrem a sessão. Quem já está logado é levado para a loja. Depois do login a
   tela volta para `?voltar=`, aceitando só caminhos do próprio site.
 

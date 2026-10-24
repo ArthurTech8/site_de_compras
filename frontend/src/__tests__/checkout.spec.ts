@@ -61,6 +61,21 @@ function resposta(status: number, corpo?: unknown) {
 
 const semEspacos = (texto: string) => texto.replace(/\s/g, ' ')
 
+const endereco = {
+  destinatario: 'Maria Souza',
+  cep: '30130-010',
+  logradouro: 'Av. Afonso Pena',
+  numero: '1500',
+  complemento: '',
+  bairro: 'Centro',
+  cidade: 'Belo Horizonte',
+  uf: 'MG',
+}
+
+async function preencherEndereco(wrapper: Awaited<ReturnType<typeof montar>>['wrapper']) {
+  for (const [campo, valor] of Object.entries(endereco)) await wrapper.get(`#end-${campo}`).setValue(valor)
+}
+
 async function montar() {
   const router = createRouter({
     history: createMemoryHistory(),
@@ -69,6 +84,7 @@ async function montar() {
       { path: '/carrinho', component: { template: '<div />' } },
       { path: '/checkout', component: CheckoutView },
       { path: '/pedidos/:id', name: 'pedido', component: { template: '<div />' } },
+      { path: '/entrar', name: 'entrar', component: { template: '<div />' } },
     ],
   })
   await router.push('/checkout')
@@ -112,13 +128,28 @@ describe('checkout', () => {
     expect(semEspacos(wrapper.get('[data-testid="total-a-pagar"]').text())).toBe('R$ 2.833,20')
   })
 
-  it('finaliza enviando só a forma e as parcelas', async () => {
+  it('não paga sem endereço e aponta os campos que faltam', async () => {
+    vi.mocked(confirmar).mockClear()
+    fetchMock.mockResolvedValueOnce(resposta(200, opcoes))
+    const { wrapper } = await montar()
+
+    await wrapper.get('.resumo .botao').trigger('click')
+    await flushPromises()
+
+    expect(confirmar).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('[role="alert"]').text()).toContain('endereço de entrega')
+    expect(wrapper.text()).toContain('O CEP precisa ter 8 dígitos.')
+  })
+
+  it('finaliza enviando a forma, as parcelas e o endereço', async () => {
     fetchMock
       .mockResolvedValueOnce(resposta(200, opcoes))
       .mockResolvedValueOnce(resposta(201, { id: 'p1' }))
       .mockResolvedValueOnce(resposta(200, { ...carrinho, itens: [], quantidadeTotal: 0, total: 0, atualizadoEm: 'x' }))
     const { wrapper, router } = await montar()
 
+    await preencherEndereco(wrapper)
     await wrapper.get('input[value="Credito"]').setValue()
     await wrapper.get('[data-testid="parcelas"]').setValue('10')
     await wrapper.get('.resumo .botao').trigger('click')
@@ -129,14 +160,16 @@ describe('checkout', () => {
       carrinhoId: 'abc',
       formaPagamento: 'Credito',
       parcelas: 10,
+      enderecoEntrega: endereco,
     })
-    expect(router.currentRoute.value.fullPath).toBe('/pedidos/p1')
+    expect(router.currentRoute.value.fullPath).toBe('/pedidos/p1?novo=1')
   })
 
   it('não paga quando o usuário cancela a confirmação', async () => {
     vi.mocked(confirmar).mockResolvedValueOnce(false)
     fetchMock.mockResolvedValueOnce(resposta(200, opcoes))
     const { wrapper, router } = await montar()
+    await preencherEndereco(wrapper)
 
     await wrapper.get('.resumo .botao').trigger('click')
     await flushPromises()
