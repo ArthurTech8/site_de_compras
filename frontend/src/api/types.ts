@@ -17,6 +17,14 @@ export interface Produto {
   estoque: number
   /** Desconto (%) no pagamento via Pix, de 5 a 15. */
   descontoPix: number
+  /** Código bipado no centro de distribuição. */
+  sku: string
+  pesoGramas: number
+  alturaCm: number
+  larguraCm: number
+  comprimentoCm: number
+  /** Prateleira no CD, como "A-03-2". */
+  localEstoque: string | null
   criadoEm: string
   atualizadoEm: string
 }
@@ -169,6 +177,8 @@ export interface EventoRastreio {
   descricao: string
   /** Cidade e UF, como "São Paulo, SP". */
   local: string
+  /** Falso para o que só a equipe vê, como a falta de um item na prateleira. */
+  publico: boolean
 }
 
 export interface Envio {
@@ -217,6 +227,7 @@ export interface PainelLogistica {
   atrasados: number
   despachoVenceHoje: number
   entreguesHoje: number
+  divergenciasAbertas: number
 }
 
 export interface EnvioFiltro {
@@ -225,6 +236,170 @@ export interface EnvioFiltro {
   busca?: string
   pagina?: number
   tamanhoPagina?: number
+}
+
+// ---------- Centro de distribuição ----------
+
+export interface PosicaoEstoque {
+  produtoId: number
+  sku: string
+  nome: string
+  imagemUrl: string | null
+  local: string | null
+  /** Pode ser vendido. */
+  disponivel: number
+  /** Vendido e ainda na prateleira, esperando a separação. */
+  reservado: number
+  /** Unidades que o separador não achou, até o inventário. */
+  divergencia: number
+  divergenciaDesde: string | null
+}
+
+export interface Inventario {
+  posicao: PosicaoEstoque
+  ajuste: number
+  mensagem: string
+}
+
+export type StatusOnda = 'Aberta' | 'Concluida'
+
+export interface OndaResumo {
+  id: number
+  status: StatusOnda
+  criadaEm: string
+  concluidaEm: string | null
+  envios: number
+  unidades: number
+  separadas: number
+}
+
+/** Uma parada da rota de coleta. */
+export interface ItemColeta {
+  produtoId: number
+  sku: string
+  nome: string
+  imagemUrl: string | null
+  local: string | null
+  quantidade: number
+  separadas: number
+}
+
+export interface EnvioDaOnda {
+  id: string
+  pedidoId: string
+  status: StatusEnvio
+  destinatario: string
+  unidades: number
+  separadas: number
+}
+
+export interface Onda {
+  id: number
+  status: StatusOnda
+  criadaEm: string
+  concluidaEm: string | null
+  coleta: ItemColeta[]
+  envios: EnvioDaOnda[]
+}
+
+export interface ResultadoOnda {
+  onda: Onda
+  mensagem: string
+}
+
+export interface Caixa {
+  codigo: string
+  nome: string
+  alturaCm: number
+  larguraCm: number
+  comprimentoCm: number
+  cabe: boolean
+  pesoEsperadoGramas: number
+}
+
+export interface ItemConferencia {
+  produtoId: number
+  sku: string
+  nome: string
+  imagemUrl: string | null
+  quantidade: number
+  conferidas: number
+}
+
+export interface Pacote {
+  caixa: string
+  pesoGramas: number
+  alturaCm: number
+  larguraCm: number
+  comprimentoCm: number
+}
+
+export interface Embalagem {
+  envioId: string
+  pedidoId: string
+  status: StatusEnvio
+  destinatario: string
+  cidade: string
+  uf: string
+  itens: ItemConferencia[]
+  caixaSugerida: string
+  caixas: Caixa[]
+  pacote: Pacote | null
+  codigoRastreio: string | null
+}
+
+export interface Etiqueta {
+  envioId: string
+  pedidoId: string
+  codigoRastreio: string
+  transportadora: string
+  remetente: { nome: string; linha1: string; linha2: string }
+  destino: Endereco
+  pacote: Pacote | null
+  unidades: number
+  geradaEm: string
+  prazoDespacho: string
+  previsaoEntrega: string
+}
+
+export type StatusManifesto = 'Aberto' | 'Fechado' | 'Coletado'
+
+export interface ManifestoResumo {
+  id: number
+  transportadora: string
+  status: StatusManifesto
+  criadoEm: string
+  fechadoEm: string | null
+  coletadoEm: string | null
+  volumes: number
+  pesoGramas: number
+}
+
+export interface PacoteManifesto {
+  envioId: string
+  pedidoId: string
+  codigoRastreio: string
+  destinatario: string
+  cidade: string
+  uf: string
+  caixa: string | null
+  pesoGramas: number | null
+}
+
+export interface Manifesto {
+  id: number
+  transportadora: string
+  status: StatusManifesto
+  criadoEm: string
+  fechadoEm: string | null
+  coletadoEm: string | null
+  pacotes: PacoteManifesto[]
+  prontosForaDoManifesto: number
+}
+
+export interface Expedicao {
+  manifestos: ManifestoResumo[]
+  prontosSemManifesto: number
 }
 
 export type PapelUsuario = 'Cliente' | 'Admin' | 'OperadorCD' | 'Entregador' | 'Atendimento'

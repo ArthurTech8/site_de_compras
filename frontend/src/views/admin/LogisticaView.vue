@@ -5,11 +5,13 @@ import { ETAPAS_ENVIO, type Envio, type EnvioResumo, type PagedResult, type Pain
 import LinhaDoTempo from '@/components/LinhaDoTempo.vue'
 import Paginacao from '@/components/Paginacao.vue'
 import StatusSelo from '@/components/StatusSelo.vue'
+import { useRouter } from 'vue-router'
 import { useSessaoStore } from '@/stores/sessao'
 import { toastErro, toastSucesso } from '@/utils/alertas'
-import { STATUS_ENVIO, cidadeEndereco, formatarDataHora, linhaEndereco, proximaEtapa } from '@/utils/logistica'
+import { STATUS_ENVIO, acaoNoCentro, cidadeEndereco, formatarDataHora, linhaEndereco, proximaEtapa } from '@/utils/logistica'
 
 const sessao = useSessaoStore()
+const router = useRouter()
 
 const painel = ref<PainelLogistica | null>(null)
 const fila = ref<PagedResult<EnvioResumo> | null>(null)
@@ -37,15 +39,23 @@ const indicadores = computed(() => [
   { chave: 'hoje', rotulo: 'Despacho vence hoje', valor: painel.value?.despachoVenceHoje ?? 0 },
   { chave: 'transporte', rotulo: 'Com a transportadora', valor: soma(comTransportadora) },
   { chave: 'entregues', rotulo: 'Entregues hoje', valor: painel.value?.entreguesHoje ?? 0 },
+  { chave: 'divergencias', rotulo: 'Faltas no estoque', valor: painel.value?.divergenciasAbertas ?? 0, alerta: true },
 ])
 
-/** Só os indicadores que correspondem exatamente a um filtro da lista viram botão. */
-const filtraveis = ['fila', 'atrasados']
+/** Só os indicadores que correspondem exatamente a um filtro da lista (ou a uma tela) viram botão. */
+const filtraveis = ['fila', 'atrasados', 'divergencias']
 
 function filtrarPorIndicador(chave: string) {
+  if (chave === 'divergencias') {
+    void router.push({ name: 'logistica-estoque' })
+    return
+  }
   filtro.atrasados = chave === 'atrasados'
   filtro.status = chave === 'fila' ? 'AguardandoSeparacao' : ''
 }
+
+/** Depois da coleta, o envio ainda anda pelo "avançar" até existir o simulador de transporte. */
+const avancavel = (status: StatusEnvio) => !!proximaEtapa(status) && ETAPAS_ENVIO.indexOf(status) >= ETAPAS_ENVIO.indexOf('Expedido')
 
 let controle: AbortController | undefined
 async function carregar() {
@@ -126,7 +136,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="logistica">
     <div class="topo">
-      <h2 class="titulo-pagina">Logística</h2>
+      <h3>Painel e fila de envios</h3>
       <button type="button" class="botao secundario" :disabled="carregando" @click="carregar">↻ Atualizar</button>
     </div>
     <p v-if="!sessao.operaLogistica" class="nota">Você pode consultar os envios, mas não movê-los.</p>
@@ -203,8 +213,16 @@ onBeforeUnmount(() => {
               <td :class="{ atrasado: linha.atrasado }">{{ formatarDataHora(linha.prazoDespacho) }}</td>
               <td>{{ formatarDataHora(linha.previsaoEntrega) }}</td>
               <td class="acoes">
+                <RouterLink
+                  v-if="acaoNoCentro(linha)"
+                  :to="acaoNoCentro(linha)!.rota"
+                  class="botao secundario"
+                  data-testid="acao-cd"
+                >
+                  {{ acaoNoCentro(linha)!.rotulo }} →
+                </RouterLink>
                 <button
-                  v-if="sessao.operaLogistica && proximaEtapa(linha.status)"
+                  v-else-if="sessao.operaLogistica && avancavel(linha.status)"
                   type="button"
                   class="botao"
                   :disabled="avancando === linha.id"
@@ -243,6 +261,9 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 18px;
   min-width: 0;
+}
+.topo h3 {
+  font-size: 1.125rem;
 }
 .topo {
   display: flex;

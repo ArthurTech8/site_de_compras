@@ -29,8 +29,8 @@ describe('utilitários de logística', () => {
 
 describe('linha do tempo', () => {
   const eventos: EventoRastreio[] = [
-    { data: '2026-10-23T12:00:00Z', status: 'AguardandoSeparacao', descricao: 'Pagamento aprovado.', local: 'São Paulo, SP' },
-    { data: '2026-10-23T15:00:00Z', status: 'EmSeparacao', descricao: 'Estamos separando os seus produtos.', local: 'São Paulo, SP' },
+    { data: '2026-10-23T12:00:00Z', status: 'AguardandoSeparacao', descricao: 'Pagamento aprovado.', local: 'São Paulo, SP', publico: true },
+    { data: '2026-10-23T15:00:00Z', status: 'EmSeparacao', descricao: 'Estamos separando os seus produtos.', local: 'São Paulo, SP', publico: true },
   ]
 
   it('mostra o que aconteceu e, apagado, o que ainda falta', () => {
