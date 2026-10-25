@@ -658,6 +658,55 @@ address strong {
 .celebracao.acompanhamento {
   padding: 28px 24px 24px;
 }
+.carregando-pedido {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 80px 0;
+  color: var(--cor-texto-suave);
+}
+.anel {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 4px solid var(--cor-primaria-suave);
+  border-top-color: var(--cor-primaria);
+  animation: girar 0.8s linear infinite;
+}
+
+@keyframes desenhar {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes pulsar-check {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes entrar-celebracao {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(12px);
+  }
+}
+@keyframes cair {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(340px) rotate(calc(var(--giro) + 540deg));
+  }
+}
 @keyframes girar {
   to {
     transform: rotate(360deg);

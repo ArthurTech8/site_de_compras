@@ -29,9 +29,14 @@ watch(
   },
 )
 
-// Ao rolar a página, o cabeçalho fica compacto.
+// Ao rolar a página, o cabeçalho fica compacto. Ele encolhe 20 px, e a página encolhe junto;
+// sem a folga entre os dois limites, numa página quase do tamanho da tela o encolhimento
+// devolvia a rolagem para baixo do limite e o cabeçalho ficava abrindo e fechando sem parar.
 const compacto = ref(false)
-const aoRolar = () => (compacto.value = window.scrollY > 24)
+const aoRolar = () => {
+  if (!compacto.value && window.scrollY > 56) compacto.value = true
+  else if (compacto.value && window.scrollY < 16) compacto.value = false
+}
 onMounted(() => window.addEventListener('scroll', aoRolar, { passive: true }))
 onBeforeUnmount(() => window.removeEventListener('scroll', aoRolar))
 </script>
