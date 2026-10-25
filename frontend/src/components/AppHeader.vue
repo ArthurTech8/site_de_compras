@@ -29,21 +29,26 @@ watch(
   },
 )
 
-// Ao rolar a página, o cabeçalho fica compacto.
+// Ao rolar a página, o cabeçalho fica compacto. Ele encolhe 20 px, e a página encolhe junto;
+// sem a folga entre os dois limites, numa página quase do tamanho da tela o encolhimento
+// devolvia a rolagem para baixo do limite e o cabeçalho ficava abrindo e fechando sem parar.
 const compacto = ref(false)
-const aoRolar = () => (compacto.value = window.scrollY > 24)
+const aoRolar = () => {
+  if (!compacto.value && window.scrollY > 56) compacto.value = true
+  else if (compacto.value && window.scrollY < 16) compacto.value = false
+}
 onMounted(() => window.addEventListener('scroll', aoRolar, { passive: true }))
 onBeforeUnmount(() => window.removeEventListener('scroll', aoRolar))
 </script>
 
 <template>
-  <header class="cabecalho nao-imprimir" :class="{ compacto }">
+  <header class="cabecalho nao-imprimir" :class="{ compacto, 'com-conta': sessao.logado }">
     <RouterLink to="/" class="marca">
       <span class="logo"><img src="/imagens/carrinho-de-compras.png" alt="" /></span>
       <h1>Loja Online</h1>
     </RouterLink>
     <nav>
-      <RouterLink to="/">Loja</RouterLink>
+      <RouterLink to="/" class="link-loja">Loja</RouterLink>
       <RouterLink to="/carrinho" class="link-carrinho">
         Carrinho
         <Transition name="badge">
@@ -59,6 +64,8 @@ onBeforeUnmount(() => window.removeEventListener('scroll', aoRolar))
         </Transition>
       </RouterLink>
       <template v-if="sessao.logado">
+        <RouterLink :to="{ name: 'meus-pedidos' }">Pedidos</RouterLink>
+        <RouterLink v-if="sessao.equipe" :to="{ name: 'logistica' }" data-testid="link-logistica">Logística</RouterLink>
         <span class="usuario" data-testid="usuario-logado">
           <span class="avatar" aria-hidden="true">{{ sessao.primeiroNome.charAt(0).toUpperCase() }}</span>
           <span class="nome-usuario">{{ sessao.primeiroNome }}</span>
@@ -207,6 +214,29 @@ nav a.router-link-exact-active {
 @media (max-width: 480px) {
   /* Com o menu de conta não cabe tudo: fica só o logo. */
   .marca h1 {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  /* Logado, o menu tem mais links: ele desce para uma segunda linha que rola de lado. */
+  .cabecalho.com-conta {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .cabecalho.com-conta nav {
+    order: 1;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .cabecalho.com-conta .marca h1 {
+    display: block;
+  }
+  .cabecalho.com-conta .usuario {
+    margin-left: auto;
+  }
+  /* O logo já leva para a loja. */
+  .cabecalho.com-conta .link-loja {
     display: none;
   }
 }

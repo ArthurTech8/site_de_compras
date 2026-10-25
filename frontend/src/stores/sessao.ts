@@ -2,7 +2,10 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { authApi, type DadosCadastro } from '@/api/auth'
 import { ApiError } from '@/api/http'
-import type { Usuario } from '@/api/types'
+import type { PapelUsuario, Usuario } from '@/api/types'
+
+const EQUIPE: PapelUsuario[] = ['Admin', 'OperadorCD', 'Entregador', 'Atendimento']
+const OPERACAO: PapelUsuario[] = ['Admin', 'OperadorCD', 'Entregador']
 
 /**
  * Quem está logado. Não guardamos token nem dados do usuário no localStorage: a sessão é um
@@ -14,6 +17,10 @@ export const useSessaoStore = defineStore('sessao', () => {
 
   const logado = computed(() => usuario.value !== null)
   const admin = computed(() => usuario.value?.papel === 'Admin')
+  /** Pode abrir a logística. O backend confere de novo em cada rota. */
+  const equipe = computed(() => !!usuario.value && EQUIPE.includes(usuario.value.papel))
+  /** Pode mover envios; o atendimento só consulta. */
+  const operaLogistica = computed(() => !!usuario.value && OPERACAO.includes(usuario.value.papel))
   const primeiroNome = computed(() => usuario.value?.nome.split(' ')[0] ?? '')
 
   async function carregar() {
@@ -43,5 +50,5 @@ export const useSessaoStore = defineStore('sessao', () => {
     }
   }
 
-  return { usuario, verificada, logado, admin, primeiroNome, carregar, entrar, cadastrar, sair }
+  return { usuario, verificada, logado, admin, equipe, operaLogistica, primeiroNome, carregar, entrar, cadastrar, sair }
 })

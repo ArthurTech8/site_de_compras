@@ -1,15 +1,24 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { pedidosApi } from '@/api/pedidos'
-import type { Pedido } from '@/api/types'
+import type { Envio, Pedido } from '@/api/types'
 import EtapasCompra from '@/components/EtapasCompra.vue'
+import LinhaDoTempo from '@/components/LinhaDoTempo.vue'
+import StatusSelo from '@/components/StatusSelo.vue'
 import { toastErro, toastSucesso } from '@/utils/alertas'
 import { formatarPercentual, formatarPreco, urlImagem } from '@/utils/formatar'
+import { STATUS_ENVIO, STATUS_PEDIDO, cidadeEndereco, linhaEndereco, textoPrevisao } from '@/utils/logistica'
 
 const props = defineProps<{ id: string }>()
 
+const route = useRoute()
 const pedido = ref<Pedido | null>(null)
+const envios = ref<Envio[]>([])
 const erro = ref<string | null>(null)
+
+/** Chegou agora do checkout: aí sim tem confete. Aberto depois, é a página de acompanhamento. */
+const recemCriado = computed(() => route.query.novo === '1')
 
 const nomesForma = { Pix: 'Pix', Debito: 'Débito', Credito: 'Crédito' } as const
 const iconesForma = { Pix: '⚡', Debito: '🏦', Credito: '💳' } as const
@@ -35,13 +44,6 @@ const dataPedido = computed(() => {
 /** Número curto para exibir; o id completo continua disponível para copiar. */
 const numeroCurto = computed(() => pedido.value?.id.slice(0, 8).toUpperCase() ?? '')
 
-const passos = [
-  { titulo: 'Pedido realizado', texto: 'Recebemos o seu pedido.', estado: 'feito' },
-  { titulo: 'Pagamento aprovado', texto: 'O pagamento foi confirmado.', estado: 'feito' },
-  { titulo: 'Em separação', texto: 'Estamos preparando os seus produtos.', estado: 'andamento' },
-  { titulo: 'Enviado', texto: 'Você será avisado quando sair para entrega.', estado: 'pendente' },
-] as const
-
 // Confete com as cores da paleta; posições fixas por peça para não sortear a cada render.
 const coresConfete = ['#0b4f9c', '#1c7ed6', '#e8590c', '#fd7e14', '#2b8a3e', '#40c057']
 const confete = Array.from({ length: 36 }, (_, i) => ({
@@ -65,13 +67,45 @@ async function copiarNumero() {
 
 const imprimir = () => window.print()
 
+async function carregarRastreio() {
+  try {
+    envios.value = await pedidosApi.rastreio(props.id)
+  } catch {
+    // Sem o rastreio, o resto do pedido continua na tela.
+  }
+}
+
+// Enquanto não foi entregue, confere de novo a cada 20 s (e só com a aba visível).
+let timer: ReturnType<typeof setInterval> | undefined
+function acompanhar() {
+  timer = setInterval(async () => {
+    if (document.hidden) return
+    if (envios.value.length && envios.value.every((e) => e.status === 'Entregue')) return clearInterval(timer)
+    const [atual] = await Promise.all([pedidosApi.obter(props.id).catch(() => null), carregarRastreio()])
+    if (atual) pedido.value = atual
+  }, 20_000)
+}
+
+async function copiarCodigo(codigo: string) {
+  try {
+    await navigator.clipboard.writeText(codigo)
+    toastSucesso('Código de rastreio copiado')
+  } catch {
+    toastErro('Não foi possível copiar', codigo)
+  }
+}
+
 onMounted(async () => {
   try {
     pedido.value = await pedidosApi.obter(props.id)
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Não foi possível carregar o pedido.'
+    return
   }
+  await carregarRastreio()
+  acompanhar()
 })
+onBeforeUnmount(() => clearInterval(timer))
 </script>
 
 <template>
@@ -88,10 +122,10 @@ onMounted(async () => {
     </div>
 
     <template v-else>
-      <EtapasCompra :atual="4" class="nao-imprimir" />
+      <EtapasCompra v-if="recemCriado" :atual="4" class="nao-imprimir" />
 
-      <div class="celebracao">
-        <div class="confete" aria-hidden="true">
+      <div class="celebracao" :class="{ acompanhamento: !recemCriado }">
+        <div v-if="recemCriado" class="confete" aria-hidden="true">
           <i
             v-for="(c, i) in confete"
             :key="i"
@@ -106,16 +140,22 @@ onMounted(async () => {
           />
         </div>
 
-        <svg class="check" viewBox="0 0 52 52" aria-hidden="true">
+        <svg v-if="recemCriado" class="check" viewBox="0 0 52 52" aria-hidden="true">
           <circle class="check-circulo" cx="26" cy="26" r="24" />
           <path class="check-marca" d="M15 27 l7 7 l15 -16" />
         </svg>
 
-        <h2>Pedido confirmado!</h2>
-        <p class="subtitulo">
-          Obrigado pela compra. Pagamento aprovado no
-          <strong>{{ nomesForma[pedido.pagamento.forma] }}</strong>, {{ descricaoPagamento }}.
-        </p>
+        <template v-if="recemCriado">
+          <h2>Pedido confirmado!</h2>
+          <p class="subtitulo">
+            Obrigado pela compra. Pagamento aprovado no
+            <strong>{{ nomesForma[pedido.pagamento.forma] }}</strong>, {{ descricaoPagamento }}.
+          </p>
+        </template>
+        <template v-else>
+          <h2>{{ STATUS_PEDIDO[pedido.status].nome }}</h2>
+          <p v-if="envios[0] && envios[0].status !== 'Entregue'" class="subtitulo">{{ textoPrevisao(envios[0].previsaoEntrega) }}</p>
+        </template>
 
         <div class="meta">
           <button type="button" class="numero" title="Copiar número completo" @click="copiarNumero">
@@ -188,24 +228,55 @@ onMounted(async () => {
           </p>
         </article>
 
-        <article class="cartao bloco passos surgir" style="--i: 4">
+        <article class="cartao bloco entrega surgir" style="--i: 4">
           <header>
-            <h3>Próximos passos</h3>
+            <h3>Entrega</h3>
+            <StatusSelo
+              v-if="envios[0]"
+              :texto="STATUS_ENVIO[envios[0].status].cliente"
+              :tom="STATUS_ENVIO[envios[0].status].tom"
+            />
           </header>
-          <ol>
-            <li v-for="p in passos" :key="p.titulo" :class="p.estado">
-              <span class="ponto" aria-hidden="true">{{ p.estado === 'feito' ? '✓' : '' }}</span>
-              <div>
-                <strong>{{ p.titulo }}</strong>
-                <span>{{ p.texto }}</span>
+
+          <div v-for="envio in envios" :key="envio.id" class="envio">
+            <div class="envio-dados">
+              <p v-if="envio.status !== 'Entregue'" class="previsao" data-testid="previsao">
+                {{ textoPrevisao(envio.previsaoEntrega) }}
+              </p>
+              <p v-else class="previsao entregue">Entregue</p>
+
+              <div v-if="envio.codigoRastreio" class="codigo">
+                <span>Código de rastreio</span>
+                <button type="button" title="Copiar código" @click="copiarCodigo(envio.codigoRastreio)">
+                  <strong>{{ envio.codigoRastreio }}</strong>
+                  <span aria-hidden="true">⧉</span>
+                </button>
+                <RouterLink :to="{ name: 'rastreio', params: { codigo: envio.codigoRastreio } }">Página de rastreio</RouterLink>
               </div>
-            </li>
-          </ol>
+              <p v-else class="nota">O código de rastreio aparece quando a etiqueta for gerada.</p>
+
+              <address>
+                <strong>{{ envio.destino.destinatario }}</strong>
+                <span>{{ linhaEndereco(envio.destino) }}</span>
+                <span>{{ cidadeEndereco(envio.destino) }}</span>
+              </address>
+            </div>
+            <LinhaDoTempo :eventos="envio.eventos" :status="envio.status" />
+          </div>
+
+          <template v-if="!envios.length">
+            <address v-if="pedido.enderecoEntrega">
+              <strong>{{ pedido.enderecoEntrega.destinatario }}</strong>
+              <span>{{ linhaEndereco(pedido.enderecoEntrega) }}</span>
+              <span>{{ cidadeEndereco(pedido.enderecoEntrega) }}</span>
+            </address>
+            <p class="nota">As informações de entrega deste pedido ainda não estão disponíveis.</p>
+          </template>
         </article>
       </div>
 
       <div class="acoes nao-imprimir surgir" style="--i: 6">
-        <button type="button" class="botao secundario" @click="imprimir">🖨 Imprimir comprovante</button>
+        <button type="button" class="botao secundario grande" @click="imprimir">🖨 Imprimir comprovante</button>
         <RouterLink to="/" class="botao destaque grande">Continuar comprando →</RouterLink>
       </div>
     </template>
@@ -516,79 +587,88 @@ onMounted(async () => {
   border: 1px solid #ffd8a8;
 }
 
-/* Linha do tempo */
-.passos {
+/* Entrega */
+.entrega {
   grid-column: 1 / -1;
 }
-.passos ol {
-  list-style: none;
+.envio {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 24px;
 }
-.passos li {
-  position: relative;
+.envio + .envio {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--cor-borda);
+}
+.envio-dados {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
+}
+.previsao {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--cor-sucesso);
+}
+.previsao::first-letter {
+  text-transform: uppercase;
+}
+.codigo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 0.8125rem;
+  color: var(--cor-texto-suave);
+}
+.codigo button {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font: inherit;
+  color: var(--cor-texto);
+  background: var(--cor-fundo);
+  border: 1px dashed var(--cor-borda);
+  border-radius: var(--raio-sm);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.codigo strong {
+  font-family: 'Zen Dots', sans-serif;
+  letter-spacing: 0.06em;
   font-size: 0.875rem;
 }
-.passos li + li::before {
-  content: '';
-  position: absolute;
-  top: 13px;
-  right: calc(100% - 14px);
-  width: calc(100% - 16px);
-  height: 3px;
-  border-radius: 2px;
-  background: var(--cor-borda);
-}
-.passos li.feito + li::before {
-  background: var(--gradiente-sucesso);
-}
-.passos li div {
+address {
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-.passos li span:not(.ponto) {
-  color: var(--cor-texto-suave);
-  font-size: 0.8125rem;
-}
-.ponto {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid var(--cor-borda);
-  background: var(--cor-superficie);
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: #fff;
-}
-.feito .ponto {
-  background: var(--gradiente-sucesso);
-  border-color: var(--cor-sucesso);
-}
-.andamento .ponto {
-  border-color: var(--cor-destaque);
-  background: var(--cor-destaque-suave);
-  animation: pulsar-anel 1.6s ease-out infinite;
-}
-.andamento strong {
-  color: var(--cor-destaque);
-}
-.pendente strong {
+  font-style: normal;
+  font-size: 0.875rem;
   color: var(--cor-texto-suave);
 }
-
+address strong {
+  color: var(--cor-texto);
+  font-weight: 500;
+}
+.nota {
+  font-size: 0.8125rem;
+  color: var(--cor-texto-suave);
+}
+.celebracao.acompanhamento {
+  padding: 28px 24px 24px;
+}
 .acoes {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 12px;
-  margin-top: 28px;
+  align-items: stretch;
+  gap: 16px;
+  margin-top: 32px;
+}
+.acoes .botao {
+  min-width: 240px;
+  justify-content: center;
 }
 
 .carregando-pedido {
@@ -640,14 +720,6 @@ onMounted(async () => {
     transform: translateY(340px) rotate(calc(var(--giro) + 540deg));
   }
 }
-@keyframes pulsar-anel {
-  0% {
-    box-shadow: 0 0 0 0 rgba(232, 89, 12, 0.45);
-  }
-  100% {
-    box-shadow: 0 0 0 12px rgba(232, 89, 12, 0);
-  }
-}
 @keyframes girar {
   to {
     transform: rotate(360deg);
@@ -658,15 +730,11 @@ onMounted(async () => {
   .grade-pedido {
     grid-template-columns: 1fr;
   }
-  .passos ol {
+  .envio {
     grid-template-columns: 1fr;
   }
-  .passos li {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-  .passos li + li::before {
-    display: none;
+  .acoes .botao {
+    flex: 1 1 100%;
   }
 }
 
