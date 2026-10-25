@@ -13,9 +13,16 @@ export const router = createRouter({
     { path: '/rastreio/:codigo?', name: 'rastreio', component: () => import('@/views/RastreioView.vue'), props: true },
     {
       path: '/admin/logistica',
-      name: 'logistica',
-      component: () => import('@/views/admin/LogisticaView.vue'),
+      component: () => import('@/views/admin/LogisticaLayout.vue'),
       meta: { requerLogin: true, somenteEquipe: true },
+      children: [
+        { path: '', name: 'logistica', component: () => import('@/views/admin/LogisticaView.vue') },
+        { path: 'separacao/:id?', name: 'logistica-separacao', component: () => import('@/views/admin/SeparacaoView.vue'), props: true },
+        { path: 'embalagem/:envioId?', name: 'logistica-embalagem', component: () => import('@/views/admin/EmbalagemView.vue'), props: true },
+        { path: 'etiqueta/:envioId', name: 'logistica-etiqueta', component: () => import('@/views/admin/EtiquetaView.vue'), props: true },
+        { path: 'expedicao/:id?', name: 'logistica-expedicao', component: () => import('@/views/admin/ExpedicaoView.vue'), props: true },
+        { path: 'estoque', name: 'logistica-estoque', component: () => import('@/views/admin/EstoqueView.vue') },
+      ],
     },
     { path: '/pedidos/:id', name: 'pedido', component: () => import('@/views/PedidoView.vue'), props: true },
     { path: '/:pathMatch(.*)*', name: 'nao-encontrado', component: () => import('@/views/NaoEncontradoView.vue') },

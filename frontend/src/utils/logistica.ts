@@ -1,4 +1,5 @@
-import { ETAPAS_ENVIO, type Endereco, type StatusEnvio, type StatusPedido } from '@/api/types'
+import type { RouteLocationRaw } from 'vue-router'
+import { ETAPAS_ENVIO, type Endereco, type EnvioResumo, type StatusEnvio, type StatusPedido } from '@/api/types'
 
 /** Tom do selo: dentro do centro de distribuição, com a transportadora, ou concluído. */
 export type TomStatus = 'cd' | 'transporte' | 'concluido'
@@ -78,3 +79,29 @@ export const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA',
   'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ] as const
+
+/** Dentro do CD o envio anda pelas telas: diz para qual tela levar cada etapa. */
+export function acaoNoCentro(envio: Pick<EnvioResumo, 'id' | 'status'>): { rotulo: string; rota: RouteLocationRaw } | null {
+  switch (envio.status) {
+    case 'AguardandoSeparacao':
+    case 'EmSeparacao':
+      return { rotulo: 'Separação', rota: { name: 'logistica-separacao' } }
+    case 'Separado':
+    case 'Embalado':
+      return { rotulo: 'Embalagem', rota: { name: 'logistica-embalagem', params: { envioId: envio.id } } }
+    case 'ProntoParaEnvio':
+      return { rotulo: 'Expedição', rota: { name: 'logistica-expedicao' } }
+    default:
+      return null
+  }
+}
+
+/** "#1F126056": o número do pedido que a loja mostra e que o embalador bipa. */
+export function numeroPedido(id: string): string {
+  return id.slice(0, 8).toUpperCase()
+}
+
+/** 1180 → "1,18 kg"; 420 → "420 g". */
+export function formatarPeso(gramas: number): string {
+  return gramas < 1000 ? `${gramas} g` : `${(gramas / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kg`
+}

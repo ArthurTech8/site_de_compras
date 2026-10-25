@@ -15,11 +15,11 @@ const pendentes = computed(() => MARCOS_CLIENTE.filter((m) => !etapaAtingida(pro
       v-for="(e, i) in eventos"
       :key="`${e.status}-${e.data}`"
       class="feito"
-      :class="{ atual: i === eventos.length - 1 && status !== 'Entregue', entregue: e.status === 'Entregue' }"
+      :class="{ atual: i === eventos.length - 1 && status !== 'Entregue', entregue: e.status === 'Entregue', interno: e.publico === false }"
     >
       <span class="ponto" aria-hidden="true" />
       <div>
-        <strong>{{ e.descricao }}</strong>
+        <strong>{{ e.descricao }}<span v-if="e.publico === false" class="tag-interno">só a equipe vê</span></strong>
         <small>{{ formatarDataHora(e.data) }} · {{ e.local }}</small>
       </div>
     </li>
@@ -102,5 +102,20 @@ small {
 .pendente strong {
   color: var(--cor-texto-suave);
   font-weight: 400;
+}
+.interno .ponto {
+  border-color: var(--cor-erro);
+  background: var(--cor-erro-suave);
+  box-shadow: none;
+}
+.tag-interno {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  vertical-align: middle;
+  color: var(--cor-erro);
+  background: var(--cor-erro-suave);
 }
 </style>
