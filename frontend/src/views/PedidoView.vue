@@ -276,7 +276,7 @@ onBeforeUnmount(() => clearInterval(timer))
       </div>
 
       <div class="acoes nao-imprimir surgir" style="--i: 6">
-        <button type="button" class="botao secundario" @click="imprimir">🖨 Imprimir comprovante</button>
+        <button type="button" class="botao secundario grande" @click="imprimir">🖨 Imprimir comprovante</button>
         <RouterLink to="/" class="botao destaque grande">Continuar comprando →</RouterLink>
       </div>
     </template>
@@ -658,6 +658,19 @@ address strong {
 .celebracao.acompanhamento {
   padding: 28px 24px 24px;
 }
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: 16px;
+  margin-top: 32px;
+}
+.acoes .botao {
+  min-width: 240px;
+  justify-content: center;
+}
+
 .carregando-pedido {
   display: flex;
   flex-direction: column;
@@ -719,6 +732,9 @@ address strong {
   }
   .envio {
     grid-template-columns: 1fr;
+  }
+  .acoes .botao {
+    flex: 1 1 100%;
   }
 }
 
