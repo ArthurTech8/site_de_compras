@@ -1,0 +1,34 @@
+# Sobe o site (nginx + Vue) e a API (.NET 8 + SQLite) juntos.
+# Espera o backend clonado ao lado deste repositório (../Site_de_Compras_Backend);
+# para outro lugar, defina BACKEND_DIR no .env.
+#
+#   cp .env.docker.example .env   # e preencha o admin
+#   docker compose up -d --build
+#   http://localhost:8080
+
+services:
+  backend:
+    build:
+      context: ${BACKEND_DIR:-../Site_de_Compras_Backend}
+    environment:
+      AdminInicial__Nome: ${ADMIN_NOME:-Administrador}
+      AdminInicial__Email: ${ADMIN_EMAIL:?Defina ADMIN_EMAIL no arquivo .env}
+      AdminInicial__Senha: ${ADMIN_SENHA:?Defina ADMIN_SENHA no arquivo .env}
+    volumes:
+      - banco:/app/data
+      - chaves:/home/app/.aspnet/DataProtection-Keys
+    # Sem "ports": a API só é acessível pelo nginx, na rede interna do Docker.
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "${PORTA_SITE:-8080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  banco:
+  chaves:

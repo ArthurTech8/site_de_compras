@@ -24,6 +24,23 @@ Em produção, o ideal é servir `dist/` e a API no mesmo domínio (proxy revers
 é um cookie `SameSite=Strict`. Se a API ficar em outro subdomínio do mesmo site, defina
 `VITE_API_URL` no build e libere a origem em `Cors:Origens` no backend.
 
+## Rodar com Docker
+
+O `docker-compose.yml` na raiz do repositório sobe o site e a API juntos. O site é servido por nginx,
+que repassa `/api` para o backend, igual ao proxy do Vite em desenvolvimento. Ele espera o backend
+clonado ao lado deste repositório (`../Site_de_Compras_Backend`).
+
+```bash
+cp .env.docker.example .env   # preencha ADMIN_EMAIL e ADMIN_SENHA
+docker compose up -d --build
+```
+
+O site fica em `http://localhost:8080`. O banco SQLite e as chaves das sessões ficam em volumes do
+Docker, então sobrevivem a `docker compose down` (só `docker compose down -v` apaga tudo).
+
+O cookie de sessão é `Secure` fora do modo desenvolvimento: o navegador aceita em `http://localhost`,
+mas para abrir o site por outro endereço (IP da rede, domínio) é preciso HTTPS na frente.
+
 ## Estrutura
 
 ```
